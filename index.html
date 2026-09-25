@@ -238,21 +238,9 @@
                         statusHtml = `<span class="badge-del" style="background:#e67e22;">기간만료</span>`;
                     }
 
-                    // 🎯 [신규 추가] 매크로 실시간 켜짐/꺼짐 판정 로직
-                    const lastConnect = info["마지막접속"] || "";
+                    // 🎯 [수정] 시간 계산 없이 파이어베이스의 "프로그램상태"("켜짐"/"꺼짐") 값만 그대로 확인
                     const runState = info["프로그램상태"] || "꺼짐";
-                    let isAlive = false;
-
-                    if (lastConnect && runState === "켜짐") {
-                        // "2026-09-25 15:30:00" 형식 파싱
-                        const lastTime = new Date(lastConnect.replace(" ", "T"));
-                        const diffMinutes = (new Date() - lastTime) / (1000 * 60);
-
-                        // 마지막 신호가 25분 이내라면 켜져 있는 것으로 판단 (Heartbeat 주기 대비 넉넉하게 25분 설정)
-                        if (diffMinutes <= 25) {
-                            isAlive = true;
-                        }
-                    }
+                    const isAlive = (runState === "켜짐");
 
                     // 켜짐: 초록색 뱃지, 꺼짐: 회색 뱃지
                     const runHtml = isAlive 
