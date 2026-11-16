@@ -29,6 +29,7 @@
             justify-content: center;
             gap: 10px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
         .tab-btn {
             padding: 10px 22px;
@@ -65,7 +66,7 @@
             padding: 12px 15px;
             border-radius: 8px;
             margin-bottom: 15px;
-            display: none; /* 기본(헬퍼 탭)에서는 숨김 */
+            display: none; /* 기본(헬퍼/미니헬퍼 탭)에서는 숨김 */
             gap: 10px;
             align-items: center;
             justify-content: center;
@@ -207,13 +208,14 @@
 
     <h2 id="pageTitle">🛡️ 메틴1 헬퍼 인증 관리</h2>
 
-    <!-- 헬퍼 / 낚시 전환 탭 -->
+    <!-- 헬퍼 / 미니헬퍼 / 낚시 전환 탭 -->
     <div class="tab-bar">
         <button id="tabHelperBtn" class="tab-btn active" onclick="switchTab('helper')">🛡️ 헬퍼 관리</button>
+        <button id="tabMiniBtn" class="tab-btn" onclick="switchTab('mini')">⚔️ 미니헬퍼 관리</button>
         <button id="tabFishingBtn" class="tab-btn" onclick="switchTab('fishing')">🎣 낚시 관리</button>
     </div>
 
-    <!-- [수정] 낚시 탭 전용: 전체 기본 최대 창 등록 수량 설정 (기본값 2, 최대 10) -->
+    <!-- 낚시 탭 전용: 전체 기본 최대 창 등록 수량 설정 (기본값 2, 최대 10) -->
     <div id="fishingConfigBox" class="fishing-config-box">
         <span style="font-weight:bold; color:#2c3e50;">🎣 낚시도우미 전체 기본 최대 창 등록 수량 (1~10):</span>
         <input type="number" id="globalMaxSlots" min="1" max="10" value="2" style="width: 75px; text-align: center; font-weight: bold;">
@@ -224,7 +226,7 @@
     <div class="control-box">
         <input type="text" id="addName" placeholder="폴더명 (예: 5700G-1)">
         <input type="text" id="addSerial" placeholder="고유번호 (PC-NEW-...)">
-        <!-- 헬퍼 탭에서만 기간 입력칸 표시 (낚시 탭은 무제한이므로 숨김) -->
+        <!-- 헬퍼/미니헬퍼 탭에서만 기간 입력칸 표시 (낚시 탭은 무제한이므로 숨김) -->
         <input type="text" id="addDuration" placeholder="기간(일수 또는 영구)">
         <!-- 낚시 탭일 때만 보이는 개별 창 수량 입력칸 -->
         <input type="number" id="addMaxSlots" min="1" max="10" placeholder="창수량(1~10)" style="width:110px; display:none;">
@@ -256,27 +258,42 @@
     </div>
 
     <script>
-        // [핵심 수정] 헬퍼용 DB와 낚시도우미용 파이어베이스 DB 주소를 각각 분리 연결
+        // 헬퍼, 미니헬퍼, 낚시도우미용 파이어베이스 DB 주소를 각각 분리 연결
         const HELPER_BASE_URL = "https://metin1-helper-default-rtdb.firebaseio.com";
+        const MINI_BASE_URL = "https://helper-zzmetin-default-rtdb.asia-southeast1.firebasedatabase.app";
         const FISHING_BASE_URL = "https://zzmetin-fishing-default-rtdb.asia-southeast1.firebasedatabase.app";
 
-        let currentTab = "helper"; // 현재 선택된 탭 ('helper' 또는 'fishing')
+        let currentTab = "helper"; // 현재 선택된 탭 ('helper', 'mini', 'fishing')
         let draggedRow = null;
 
         // 현재 탭에 맞는 파이어베이스 users 경로 반환
         function getActiveUsersUrl() {
-            return (currentTab === "fishing") ? `${FISHING_BASE_URL}/users` : `${HELPER_BASE_URL}/users`;
+            if (currentTab === "fishing") return `${FISHING_BASE_URL}/users`;
+            if (currentTab === "mini") return `${MINI_BASE_URL}/users`;
+            return `${HELPER_BASE_URL}/users`;
         }
 
-        // 탭 전환 함수 (헬퍼 <-> 낚시)
+        // 탭 전환 함수 (헬퍼 <-> 미니헬퍼 <-> 낚시)
         function switchTab(tab) {
             currentTab = tab;
 
+            // 선택된 탭 버튼 활성화 표시
             document.getElementById("tabHelperBtn").classList.toggle("active", tab === "helper");
+            document.getElementById("tabMiniBtn").classList.toggle("active", tab === "mini");
             document.getElementById("tabFishingBtn").classList.toggle("active", tab === "fishing");
 
             const isFishing = (tab === "fishing");
-            document.getElementById("pageTitle").textContent = isFishing ? "🎣 낚시도우미 인증 관리" : "🛡️ 메틴1 헬퍼 인증 관리";
+
+            // 탭별 상단 제목 변경
+            if (tab === "fishing") {
+                document.getElementById("pageTitle").textContent = "🎣 낚시도우미 인증 관리";
+            } else if (tab === "mini") {
+                document.getElementById("pageTitle").textContent = "⚔️ 메틴1 미니헬퍼 인증 관리";
+            } else {
+                document.getElementById("pageTitle").textContent = "🛡️ 메틴1 헬퍼 인증 관리";
+            }
+
+            // 입력창 안내 문구 및 버튼 표시 전환
             document.getElementById("addSerial").placeholder = isFishing ? "고유번호 (F-NEW-...)" : "고유번호 (PC-NEW-...)";
             document.getElementById("addDuration").style.display = isFishing ? "none" : "inline-block";
             document.getElementById("saveUserBtn").textContent = isFishing ? "➕ 낚시 등록" : "➕ 등록 / 기간 충전";
@@ -284,7 +301,7 @@
             document.getElementById("fishingConfigBox").style.display = isFishing ? "flex" : "none";
             document.getElementById("addMaxSlots").style.display = isFishing ? "inline-block" : "none";
 
-            // 낚시 탭에서는 만료일/남은기간 숨기고 창수량 컬럼 표시
+            // 낚시 탭에서는 만료일/남은기간 숨기고 창수량 컬럼 표시 (헬퍼/미니헬퍼는 만료일/남은기간 표시)
             document.getElementById("thExpire").style.display = isFishing ? "none" : "table-cell";
             document.getElementById("thRemain").style.display = isFishing ? "none" : "table-cell";
             document.getElementById("thMaxSlots").style.display = isFishing ? "table-cell" : "none";
@@ -365,8 +382,12 @@
                 const tbody = document.getElementById("userTableBody");
                 tbody.innerHTML = "";
 
+                // 탭별 빈 목록 안내 문구 설정
+                const emptyMsg = (currentTab === "fishing")
+                    ? "등록된 낚시 유저(F-NEW-)가 없습니다."
+                    : (currentTab === "mini" ? "등록된 미니헬퍼 유저가 없습니다." : "등록된 헬퍼 유저가 없습니다.");
+
                 if (!data) {
-                    const emptyMsg = (currentTab === "fishing") ? "등록된 낚시 유저(F-NEW-)가 없습니다." : "등록된 헬퍼 유저가 없습니다.";
                     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px;">${emptyMsg}</td></tr>`;
                     return;
                 }
@@ -374,7 +395,6 @@
                 const userList = Object.entries(data).filter(([_, info]) => typeof info === 'object' && info !== null);
 
                 if (userList.length === 0) {
-                    const emptyMsg = (currentTab === "fishing") ? "등록된 낚시 유저(F-NEW-)가 없습니다." : "등록된 헬퍼 유저가 없습니다.";
                     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 20px;">${emptyMsg}</td></tr>`;
                     return;
                 }
@@ -417,7 +437,7 @@
                         ? `<span class="badge-ok" style="background:#27ae60;">● 켜짐</span>`
                         : `<span class="badge-del" style="background:#95a5a6;">○ 꺼짐</span>`;
 
-                    // 헬퍼 탭에서는 만료일/남은기간 표시, 낚시 탭에서는 개별 창수량 입력칸 표시
+                    // 헬퍼/미니헬퍼 탭에서는 만료일/남은기간 표시, 낚시 탭에서는 개별 창수량 입력칸 표시
                     const helperDateHtml = isFishing
                         ? ""
                         : `<td style="text-align: center;">${expire}</td>
@@ -529,7 +549,7 @@
             }
         }
 
-        // 4. 신규 등록 (헬퍼: 기간 충전 포함 / 낚시: 무제한 등록 + 창 수량 설정)
+        // 4. 신규 등록 (헬퍼/미니헬퍼: 기간 충전 포함 / 낚시: 무제한 등록 + 창 수량 설정)
         async function saveUser() {
             const name = document.getElementById("addName").value.trim();
             const serial = document.getElementById("addSerial").value.trim();
@@ -555,7 +575,7 @@
                     payload["최대창수"] = num;
                 }
             } else {
-                // 헬퍼 탭: 기간 충전 저장
+                // 헬퍼 및 미니헬퍼 탭: 기간 충전 저장
                 if (duration) payload["등록기간"] = duration;
             }
 
@@ -595,7 +615,7 @@
 
         // 6. 유저 영구 삭제
         async function deleteUser(name) {
-            if (!confirm(`정말 [${name}] 유저를 완전히 삭제하시겠습니까?`)) return;
+            if (!confirm(`정말 [${name}] 유저를 완전히 삭제하시습니까?`)) return;
             try {
                 await fetch(`${getActiveUsersUrl()}/${encodeURIComponent(name)}.json`, { method: 'DELETE' });
                 loadUsers();
