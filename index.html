@@ -256,14 +256,7 @@
         <button id="tabFishingBtn" class="tab-btn" onclick="switchTab('fishing')">🎣 낚시 관리</button>
     </div>
 
-    <!-- 낚시 탭 전용: 전체 기본 최대 창 등록 수량 설정 (기본값 2, 최대 10) -->
-    <div id="fishingConfigBox" class="fishing-config-box">
-        <span style="font-weight:bold; color:#2c3e50;">🎣 낚시도우미 전체 기본 최대 창 등록 수량 (1~10):</span>
-        <input type="number" id="globalMaxSlots" min="1" max="10" value="2" style="width: 75px; text-align: center; font-weight: bold;">
-        <button onclick="saveGlobalMaxSlots()">💾 기본 수량 저장</button>
-    </div>
-
-    <!-- 상단 간편 등록 패널 -->
+<!-- 상단 간편 등록 패널 -->
     <div class="control-box">
         <input type="text" id="addName" placeholder="폴더명 (예: 5700G-1)">
         <input type="text" id="addSerial" placeholder="고유번호 (PC-NEW-...)">
@@ -351,7 +344,6 @@
             document.getElementById("addDuration").style.display = isFishing ? "none" : "inline-block";
             document.getElementById("saveUserBtn").textContent = isFishing ? "➕ 낚시 등록" : "➕ 등록 / 기간 충전";
 
-            document.getElementById("fishingConfigBox").style.display = isFishing ? "flex" : "none";
             document.getElementById("addMaxSlots").style.display = isFishing ? "inline-block" : "none";
 
             // 컬럼 표시/숨김 설정 (오직 미니헬퍼 탭에서만 멍구 컬럼 표시)
@@ -359,45 +351,7 @@
             document.getElementById("thRemain").style.display = isFishing ? "none" : "table-cell";
             document.getElementById("thMaxSlots").style.display = isFishing ? "table-cell" : "none";
             document.getElementById("thMunggu").style.display = isMini ? "table-cell" : "none";
-
-            if (isFishing) {
-                loadGlobalMaxSlots();
-            }
             loadUsers();
-        }
-
-        // 낚시 전체 기본 최대 창 수량 불러오기
-        async function loadGlobalMaxSlots() {
-            try {
-                const res = await fetch(`${FISHING_BASE_URL}/fishing_config/max_slots.json`);
-                const val = await res.json();
-                if (val !== null && val !== undefined) {
-                    document.getElementById("globalMaxSlots").value = val;
-                } else {
-                    document.getElementById("globalMaxSlots").value = 2; // 기본 2개
-                }
-            } catch (err) {
-                console.error("기본 창 수량 로드 실패:", err);
-            }
-        }
-
-        // 낚시 전체 기본 최대 창 수량 저장하기 (1~10)
-        async function saveGlobalMaxSlots() {
-            const count = parseInt(document.getElementById("globalMaxSlots").value, 10);
-            if (isNaN(count) || count < 1 || count > 10) {
-                alert("1 ~ 10 사이의 숫자를 입력해주세요.");
-                return;
-            }
-            try {
-                await fetch(`${FISHING_BASE_URL}/fishing_config.json`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ "max_slots": count })
-                });
-                alert(`낚시도우미 기본 최대 창 수량이 ${count}개로 저장되었습니다.`);
-            } catch (err) {
-                alert("저장 실패: " + err.message);
-            }
         }
 
         // 특정 낚시 유저의 개별 창 수량만 즉시 저장
