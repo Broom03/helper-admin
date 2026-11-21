@@ -13,7 +13,7 @@
             font-family: '맑은 고딕', sans-serif;
             background-color: #f4f6f9;
             margin: 20px auto;
-            max-width: 1150px;
+            max-width: 1080px;
             padding: 0 15px;
         }
         h2 {
@@ -273,17 +273,20 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 130px;">이름(사용자명)</th>
-                    <th>등록번호 (HWID)</th>
-                    <th id="thExpire" style="width: 140px; text-align: center;">만료일</th>
-                    <th id="thRemain" style="width: 110px; text-align: center;">남은기간</th>
+                    <th style="width: 115px;">이름(사용자명)</th>
+                    <th style="width: 235px;">등록번호 (HWID)</th>
+                    <th id="thExpire" style="width: 110px; text-align: center;">만료일</th>
+                    <th id="thRemain" style="width: 95px; text-align: center;">남은기간</th>
                     <!-- 낚시 탭일 때만 표시되는 개별 창 수량 컬럼 -->
-                    <th id="thMaxSlots" style="width: 130px; text-align: center; display: none;">창수량 (1~10)</th>
-                    <th style="width: 70px; text-align: center;">버전</th>
-                    <th style="width: 80px; text-align: center;">구동</th>
+                    <th id="thMaxSlots" style="width: 115px; text-align: center; display: none;">창수량 (1~10)</th>
+                    <!-- 미니헬퍼/낚시 탭에서만 표시되는 캐릭터 및 접속IP 컬럼 -->
+                    <th id="thChars" style="width: 85px; text-align: center; display: none;">캐릭터</th>
+                    <th id="thIp" style="width: 130px; text-align: center; display: none;">접속IP</th>
+                    <th style="width: 65px; text-align: center;">버전</th>
+                    <th style="width: 75px; text-align: center;">구동</th>
                     <!-- 미니헬퍼 탭에서만 표시되는 멍구 상태 컬럼 -->
-                    <th id="thMunggu" style="width: 80px; text-align: center; display: none;">멍구</th>
-                    <th style="width: 90px; text-align: center;">상태</th>
+                    <th id="thMunggu" style="width: 105px; text-align: center; display: none;">멍구</th>
+                    <th style="width: 80px; text-align: center;">상태</th>
                     <th style="width: 140px; text-align: center;">관리</th>
                 </tr>
             </thead>
@@ -301,6 +304,15 @@
         </div>
     </div>
 
+<!-- 접속캐릭터 목록 보기 팝업 -->
+    <div id="charModal" class="modal-overlay" onclick="if(event.target === this) closeCharModal()">
+        <div class="modal-box">
+            <h3 id="charModalTitle" style="margin:0; font-size:16px; color:#2c3e50;">캐릭터 기록</h3>
+            <div id="charModalList" class="modal-list"></div>
+            <button onclick="closeCharModal()" style="background:#34495e; width:100%;">닫기</button>
+        </div>
+    </div>
+
     <script>
         // 헬퍼, 미니헬퍼, 낚시도우미용 파이어베이스 DB 주소를 각각 분리 연결
         const HELPER_BASE_URL = "https://metin1-helper-default-rtdb.firebaseio.com";
@@ -310,6 +322,7 @@
         let currentTab = "helper"; // 현재 선택된 탭 ('helper', 'mini', 'fishing')
         let draggedRow = null;
 	let mungguHistoryMap = {};  // 유저별 멍구 최근 20개 기록 임시 저장소
+        let charListMap = {};       // 유저별 접속캐릭터 목록 임시 저장소
 
         // 현재 탭에 맞는 파이어베이스 users 경로 반환
         function getActiveUsersUrl() {
@@ -327,29 +340,41 @@
             document.getElementById("tabMiniBtn").classList.toggle("active", tab === "mini");
             document.getElementById("tabFishingBtn").classList.toggle("active", tab === "fishing");
 
+            const isHelper = (tab === "helper");
             const isFishing = (tab === "fishing");
             const isMini = (tab === "mini");
+            const showCharIp = (isMini || isFishing);
 
             // 탭별 상단 제목 변경
-            if (tab === "fishing") {
+            if (isFishing) {
                 document.getElementById("pageTitle").textContent = "🎣 zzmetin 낚시 인증 관리";
-            } else if (tab === "mini") {
+            } else if (isMini) {
                 document.getElementById("pageTitle").textContent = "⚔️ zzmetin 헬퍼 인증 관리";
             } else {
                 document.getElementById("pageTitle").textContent = "🛡️ 메틴1 헬퍼 인증 관리";
             }
 
-            // 입력창 안내 문구 및 버튼 표시 전환
-            document.getElementById("addSerial").placeholder = isFishing ? "고유번호 (F-NEW-...)" : "고유번호 (PC-NEW-...)";
-            document.getElementById("addDuration").style.display = isFishing ? "none" : "inline-block";
-            document.getElementById("saveUserBtn").textContent = isFishing ? "➕ 낚시 등록" : "➕ 등록 / 기간 충전";
+            // 입력창 안내 문구 및 버튼 표시 전환 (기간 입력은 헬퍼 탭에서만 표시)
+            document.getElementById("addSerial").placeholder = isFishing
+                ? "고유번호 (F-NEW-...)"
+                : (isMini ? "고유번호 (ZZ-NEW-...)" : "고유번호 (PC-NEW-...)");
+            document.getElementById("addDuration").style.display = isHelper ? "inline-block" : "none";
+            document.getElementById("saveUserBtn").textContent = isFishing
+                ? "➕ 낚시 등록"
+                : (isMini ? "➕ 미니헬퍼 등록" : "➕ 등록 / 기간 충전");
 
             document.getElementById("addMaxSlots").style.display = isFishing ? "inline-block" : "none";
 
-            // 컬럼 표시/숨김 설정 (오직 미니헬퍼 탭에서만 멍구 컬럼 표시)
-            document.getElementById("thExpire").style.display = isFishing ? "none" : "table-cell";
-            document.getElementById("thRemain").style.display = isFishing ? "none" : "table-cell";
+            // 컬럼 표시/숨김 설정
+            // - 만료일/남은기간: 헬퍼 탭만
+            // - 창수량: 낚시 탭만
+            // - 접속캐릭터/접속IP: 미니헬퍼 & 낚시 탭만
+            // - 멍구: 미니헬퍼 탭만
+            document.getElementById("thExpire").style.display = isHelper ? "table-cell" : "none";
+            document.getElementById("thRemain").style.display = isHelper ? "table-cell" : "none";
             document.getElementById("thMaxSlots").style.display = isFishing ? "table-cell" : "none";
+            document.getElementById("thChars").style.display = showCharIp ? "table-cell" : "none";
+            document.getElementById("thIp").style.display = showCharIp ? "table-cell" : "none";
             document.getElementById("thMunggu").style.display = isMini ? "table-cell" : "none";
             loadUsers();
         }
@@ -390,9 +415,11 @@
                 const tbody = document.getElementById("userTableBody");
                 tbody.innerHTML = "";
 
+                const isHelper = (currentTab === "helper");
                 const isFishing = (currentTab === "fishing");
                 const isMini = (currentTab === "mini");
-                const colSpan = isFishing ? 7 : (isMini ? 10 : 9);
+                const showCharIp = (isMini || isFishing);
+                const colSpan = isHelper ? 8 : 9;
 
                 // 탭별 빈 목록 안내 문구 설정
                 const emptyMsg = isFishing
@@ -417,6 +444,15 @@
                     return orderA - orderB;
                 });
 
+                // 동일 IP 중복 감지를 위한 카운트 집계
+                const ipCountMap = {};
+                for (const [_, info] of userList) {
+                    const ip = (info["접속IP"] || "").trim();
+                    if (ip && ip !== "-" && ip !== "확인불가") {
+                        ipCountMap[ip] = (ipCountMap[ip] || 0) + 1;
+                    }
+                }
+
                 for (const [name, info] of userList) {
                     let serialList = [];
                     for (const [key, val] of Object.entries(info)) {
@@ -429,6 +465,12 @@
                     const expire = info["만료일"] || "-";
                     const remain = info["남은기간"] || (info["등록기간"] ? info["등록기간"] + " (대기)" : "-");
                     const version = info["사용버전"] || "-";
+                    const charData = info["접속캐릭터"];
+                    const userIp = info["접속IP"] || "-";
+                    const isDupIp = (userIp !== "-" && userIp !== "확인불가" && (ipCountMap[userIp] || 0) >= 2);
+                    const ipStyle = isDupIp
+                        ? "font-family: Consolas; font-size: 12px; color: #e74c3c; font-weight: bold;"
+                        : "font-family: Consolas; font-size: 12px;";
                     const status = info["상태"] || "";
                     const userMaxSlots = (info["최대창수"] !== undefined && info["최대창수"] !== null) ? info["최대창수"] : "";
 
@@ -463,11 +505,41 @@
                         mungguTdHtml = `<td style="text-align: center;">${mungguHtml}</td>`;
                     }
 
-                    // 헬퍼/미니헬퍼 탭에서는 만료일/남은기간 표시, 낚시 탭에서는 개별 창수량 입력칸 표시
-                    const helperDateHtml = isFishing
-                        ? ""
-                        : `<td style="text-align: center;">${expire}</td>
-                           <td style="text-align: center;">${remain}</td>`;
+                    // 헬퍼 탭에서만 만료일/남은기간 표시 (미니헬퍼/낚시는 무제한이므로 제외)
+                    const helperDateHtml = isHelper
+                        ? `<td style="text-align: center;">${expire}</td>
+                           <td style="text-align: center;">${remain}</td>`
+                        : "";
+
+                    // 미니헬퍼 & 낚시 탭에서만 캐릭터(팝업 버튼) 및 접속IP 표시
+                    let charIpTdHtml = "";
+                    if (showCharIp) {
+                        // dict({ "A": "2026.11.21 10:21" }) 및 구버전 문자열("A, B") 모두 호환 처리
+                        let charEntries = [];
+                        if (charData && typeof charData === "object" && !Array.isArray(charData)) {
+                            charEntries = Object.entries(charData).map(([cName, cTime]) => ({
+                                name: cName,
+                                time: typeof cTime === "string" ? cTime : "-"
+                            }));
+                            // 접속 시간 오름차순 정렬 (먼저 접속한 캐릭터가 위, 새로 추가된 캐릭터가 아래)
+                            charEntries.sort((a, b) => a.time.localeCompare(b.time));
+                        } else if (typeof charData === "string" && charData.trim() && charData.trim() !== "-" && charData.trim() !== "없음") {
+                            charEntries = charData.split(",").map(c => c.trim()).filter(Boolean).map(cName => ({
+                                name: cName,
+                                time: "-"
+                            }));
+                        }
+                        charListMap[name] = charEntries;
+
+                        // 캐릭터가 없어도 항상 클릭 가능한 버튼 표시
+                        const btnBg = charEntries.length > 0 ? "#2980b9" : "#7f8c8d";
+                        const charBtnHtml = `<button class="btn-history" style="background-color:${btnBg}; margin-left:0;" onclick="openCharModal('${name}')">보기 (${charEntries.length})</button>`;
+
+                        charIpTdHtml = `
+                            <td style="text-align: center;">${charBtnHtml}</td>
+                            <td style="text-align: center; ${ipStyle}">${userIp}${isDupIp ? " (중복)" : ""}</td>
+                        `;
+                    }
 
                     const slotTdHtml = isFishing
                         ? `<td style="text-align: center;">
@@ -486,6 +558,7 @@
                         <td style="font-family: Consolas; font-size: 13px;">${serialStr}</td>
                         ${helperDateHtml}
                         ${slotTdHtml}
+                        ${charIpTdHtml}
                         <td style="text-align: center;">${version}</td>
                         <td style="text-align: center;">${runHtml}</td>
                         ${mungguTdHtml}
@@ -601,8 +674,8 @@
                     }
                     payload["최대창수"] = num;
                 }
-            } else {
-                // 헬퍼 및 미니헬퍼 탭: 기간 충전 저장
+            } else if (currentTab === "helper") {
+                // 헬퍼 탭만 기간 충전 저장 (미니헬퍼는 무제한)
                 if (duration) payload["등록기간"] = duration;
             }
 
@@ -673,6 +746,29 @@
 
         function closeMungguModal() {
             document.getElementById("mungguModal").style.display = "none";
+        }
+
+        // 캐릭터 기록 팝업 열기 (캐릭터명 + 최초 접속 시간)
+        function openCharModal(name) {
+            const list = charListMap[name] || [];
+            document.getElementById("charModalTitle").textContent = `[${name}] 캐릭터 기록 (${list.length}명)`;
+            const listEl = document.getElementById("charModalList");
+
+            if (list.length === 0) {
+                listEl.innerHTML = `<div style="text-align:center; padding:20px; color:#7f8c8d;">기록된 캐릭터가 없습니다.</div>`;
+            } else {
+                listEl.innerHTML = list.map((item) => {
+                    return `<div class="modal-item">
+                                <span><b>${item.name}</b></span>
+                                <span style="color:#7f8c8d; font-family:Consolas; font-size:12px;">${item.time}</span>
+                            </div>`;
+                }).join("");
+            }
+            document.getElementById("charModal").style.display = "flex";
+        }
+
+        function closeCharModal() {
+            document.getElementById("charModal").style.display = "none";
         }
     </script>
 </body>
